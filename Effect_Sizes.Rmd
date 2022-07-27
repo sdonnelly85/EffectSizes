@@ -1,0 +1,210 @@
+---
+output:
+  word_document:
+    fig_caption: yes
+    reference_docx: apa_style.docx
+always_allow_html: true
+---
+
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+
+# Effect Sizes for Categorical Data
+
+<br>
+
+# Seamus Donnelly^1^ & Jay Verkuilen ^2^
+
+# Max Planck Institute for Psycholinguistics^1^
+
+# Graduate Center of the City University of New York^2^
+
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+# Author Note
+#### This research was funded by a grant from Australian Research Council.
+
+<br>
+
+#### Correspondence should be sent to Seamus Donnelly, Max Planck Institute for Psycholinguistics. 
+
+###### Abstract
+#### Here is an abstract 
+
+###### Effect Sizes for Categorical Data
+Categorical data are widespread in language acquisition research: response accuracy in computerized tasks, production data in corpus and priming studies, and choices in the forced point paradigm. Because categorical data do not meet the assumptions of linear models, researchers have recently turned to generalized linear models--such as logistic regression, multinomial regression and the cumulative logit model--to analyze their data. While such models are better suited to analysing categorical data, they quantify relationships between variables in logits, which are notoriously difficult to interpret, even for statisticians. Here, we compare the logit to two alternative effect size metrics for binary data (percentage point differences, risk ratios). We discuss the different interpretations of the three metrics and show how to estimate them using Bayesian methods. We emphasize, throughout, that there is no generally correct choice of effect size measure; rather, we encourage researchers to carefully consider all three in reaching statistical inferences. 
+
+## Example
+
+We begin with a brief review of logistic regression, emphasizing the problems it solves as well as some of its interpretational challenges. Consider a hypothetical syntactic priming experiment, where 100 participants of various ages are assigned to one of two conditions (an active or passive prime) and complete one test trial. In such a situation, we have three variables (response, prime type and age) for 100 participants. One might fit a linear regression to this model with the form:
+
+$$
+\begin{align}
+y = \beta_{0} + \beta_{1} \times Prime + \beta_{2} \times Age + \epsilon
+\end{align}
+$$
+
+An advantage of linear regression, such as the model in Equation 1, is its easy interpretation. First, it assumes that prime and age combine additively and relate linearly to the dependent variable. In particular, this model assumes that the effect of prime is the same for all participants (regardless of their age) and that the effect of age is linear (that is, the difference in passives produced between three and four year olds is the same as the difference in passives produced between four and five year olds). Second, the model assumes that the error term  ($\epsilon_{i}$) is independent of the other parameters. In other words, the discrepancies between the model's predicted values and observed values are assumed to be the same across all the model's predictions. 
+
+We could relax the assumptions of this model by allowing Age and Prime structure to interact (as in Equation 2):
+$$
+\begin{align}
+y = \beta_{0} + \beta_{1} \times Prime + \beta_{2} \times Age + \beta_{3} \times  Prime \times Age + \epsilon
+\end{align}
+$$
+
+However, doing so complicates the interpretation of the above parameters. For example, $\beta_{1}$ now refers to the difference between participants primed with actives or passives at whichever value of age is set to 0. In other words, the effect of Prime is now assumed to be conditional on the value of age. This is why researchers must be cautious in their choice of coding scheme for categorical variables with interactions (Citations). 
+
+While Equations 1 and 2 are reasonably easy to interpret, they are often inappropriate for binary data. Figure 1 shows that when applied to binary data, linear regression yields impermissible predictions. In particular, this model predicts that older participants in the passive prime condition will produce passives more than 100% of the time. This is a necessary consequence of the assumptions of linear regression. By assuming predictors relate linearly to outcomes, we assume that scores on the outcome increase without bound. Nothing in linear regression restricts $y$ to be between 0 and 1. This is one reason why fitting linear regression to binary data can result in biased parameter estimates (Barr, 2008, Jaeger, 2010, Mirman, Dixon & Magnusson, 2008), and even create spurious significant effects (Donnelly & Verkuilen, 2017).
+
+```{r, include=FALSE}
+set.seed(1042)
+library("brms")
+library("tidyverse")
+
+d1 <- tibble(
+  group = rbinom(200,1, .5), 
+  age = rnorm(200, 4, .75), 
+  age.c = age/mean(age),
+  passive = rbinom(200, 1, inv_logit_scaled(-3 + 1.5*age.c + 1*group + 2*age.c*group )),
+  prime = ifelse(group==1, yes="passive", no="active")
+)
+
+
+m1 <- glm(passive ~ group*age.c, data=d1)
+summary(m1)
+```
+
+```{r, echo=FALSE, message=FALSE, dpi=300, fig.cap="Figure 1. Data with regression lines from Equation 1"}
+ggplot(d1, aes(x=age, y=passive, color=prime, fill=prime)) + 
+  geom_point() + 
+  stat_smooth(method="lm") + 
+  ylim(0, 1.5) + 
+  theme_minimal()
+```
+
+Unlike linear regression, logistic regression restricts its predictions to be between 0 and 1. It does so by employing a logistic link function, as in equation 3. Equation 3 contains 2 lines. The first line specifies the relationship between the predictor variables, and the so-called linear predictor, which we represent as *lp*. The next line specifies the relationship between the linear predictor *lp* and y, via a logistic function. The logistic function, which can be seen in Figure 2 below, takes values from $-\infty$ to $\infty$ as inputs as inputs and returns values between 0 and 1. 
+
+$$
+\begin{equation}
+lp = \beta_{0} + \beta_{1} \times Prime + \beta_{2} \times Age
+\end{equation}
+
+\begin{equation}
+y = logit^{-1}(lp)
+\end{equation}
+$$
+
+```{r, echo=FALSE, message=FALSE, dpi=300, fig.cap="Figure 2. Relationship Between Linear Predictor and Y in Logistic Regression"}
+set.seed(3431)
+tibble(lp = rnorm(400, 0, 4)) %>%
+  mutate(
+    y = inv_logit_scaled(lp)
+  ) %>%
+  ggplot(aes(x = lp, y = y)) + geom_line() + ylab("Prop") + theme_minimal() 
+
+```
+
+Equation 3 is useful in illustrating why the predictions from logistic regression are constrained to be between 0 and 1. However, it masks one of the challenges in logistic regression: the interpretation of of the regression parameters. The first line of Equation 3 indicates that the parameters combine linearly and additively on the scale of the *linear predictor*. However, because the link function is non-linear, the regression parameters do not combine additively or linearly to on the scale of y. This is emphasized by Equation 4, which is an alternate expression of Equation 3. 
+
+$$
+\begin{equation}
+y = \frac{1}{1 + e^{(\beta_{0} + \beta_{1} \times Prime + \beta_{2} \times Age)}}
+\end{equation}
+$$
+```{r, echo=FALSE}
+B2a = .5
+Age1 = 3
+Age2 = 7
+Int1 = -2
+Int2=-2
+Prime1 = 1.1
+
+library(brms)
+p1 <- inv_logit_scaled(Int1 + Age1*B2a) %>% round(2)
+  
+p2 <- inv_logit_scaled(Int1 + Age1*B2a + Prime1) %>% round(2)
+
+p12 <- p2-p1
+
+p3 <- inv_logit_scaled(Int1 + Age2*B2a) %>% round(2)
+
+p4 <- inv_logit_scaled(Int1 + Age2*B2a + Prime1) %>% round(2)
+
+p43 <- p4 - p3
+```
+
+If the reader is no longer sure how to interpret the parameters above, they are not alone. As an example, consider a model where $\beta_{0}$ = `r Int1`, $\beta_{1}$ = `r Prime1` and $\beta_{2}$ =`r B2a`. Assume that Prime is dummy coded, with 0 for an active prime and 1 for a passive prime. The predicted probability that a `r Age1` year old participant produces a passive after an active prime is `r p1` and the probability that a participant produces a passive after a passive is `r p2`, for a difference of `r p12` percentage points. However, if the same child were `r Age2` years old, the predicted probabilities would be `r p3` and `r p4` respectively, for a difference of `r p43` percentage points. In other words, even though prime and age are additive on the scale of the linear predictor, they interact on the scale of probability. This is induced by the non-linear link function--precisely the thing that constrains our predictions to be between 0 and 1. 
+
+In general, in logistic regression, the magnitude of the relationship between any parameter and y depends on the values of all the other parameters in the model (including $\beta_{0}$). Thus, while the logit link function is an excellent tool for estimating a logistic regression equation, its standard parameter estimates are often not well suited to describing the magnitude of the relationship between predictors and the outcomes. Fortunately, there is a long literature in epidemiology considering varying effect sizes for categorical data analysis, including the logit described above. We describe these measures in turn. 
+
+## One Table, 3 Effect Sizes. 
+Consider a simpler version of our example from above. Assume that, rather than treating age as a continuous variable, we treat it as a binary variable (children vs adults). As before, our independent variable is the prime type and our dependent variable is the proportion of passives produced on test trial (See Table 1). How can we quantify the magnitude of the priming effect for each group? 
+
+```{r, echo=FALSE, message=FALSE}
+library(stargazer)
+library(kableExtra)
+library(magick)
+d <- tibble(Group  = c("Adults", "Adults", "Children", "Children"), 
+       Prime = c("Active", "Passive", "Active", "Passive"), 
+       Prop = c(.30, .35, .05, .10))
+
+
+odds_cp <- d[4, 3]/(1- d[4, 3]) %>% round(2)
+odds_ca <-  d[3, 3]/(1- d[3, 3]) %>% round(2)
+odds_c <- odds_cp/odds_ca %>% round(2)
+
+odds_ap <- d[2, 3]/(1- d[2, 3]) %>% round(2)
+odds_aa <- d[1, 3]/(1- d[1, 3]) %>% round(2)
+odds_a <- odds_ap/odds_aa %>% round(2)
+
+
+d %>%
+  data.frame() %>%
+  xtabs(Prop ~ Prime + Group, .) %>%
+  kable() %>%
+  kable_classic(full_width = F, html_font = "Cambria") 
+```
+
+The most obvious method is to subtract the proportion of passives produced after active primes from the proportion of passives produced after passive primes, **percentage point changes**. In this case, the magnitude of the priming effect for both groups is 5 percentage points. This is a very similar approach to calculating Cohen's d, which divides this difference score by the pooled standard deviation, and has been commonly used in the developmental syntactic priming literature (Rowland et al. 2012; Peter et al. 2015). 
+
+However, an alternative approach is to divide the proportion of passives produced after passive primes by the proportion of active primes, so called **risk ratios**. This shows us that children's production of passives has increased two-fold, whereas adults' productions of passives has increased by 1.16 or 16%. Risk ratios tell us how the experimental variable (in this case, prime structure) changed the frequency of the event. We suspect this quantity is what most researchers in syntactic priming research are interested in. For example, Peter et al. 2015 interpreted. 
+
+A third method of quantifying the strength of the priming effects from the data in this table is to calculate the odd's ratio, which is the basis of logistic regression (logits are logarithm-transformed odds ratios). The odds of an event is the probability that the event occurs divided by the probability that the event does not occur, so the odds that children produce a passive after a passive prime is `r d[4, 3]` divided by `r 1 - d[4, 3]`, or `r odds_cp$Prop %>% round(3)`. We can divide this by the odds of producing a passive after an active prime, `r odds_ca$Prop  %>% round(3)`, to get the odds ratio `r odds_c$Prop  %>% round(3)`. If we follow the same procedure for adults, we get an odds ratio of `r odds_a$Prop  %>% round(3)`. These odds ratios tell us how the experimental variable  affected the odds of producing a passive. However as odds are notoriously difficult to interpret, the widespread popularity of the odds ratio comes from its mathematical properties, rather than its intepretational properties. 
+
+## 3 Effect Sizes, 3 Models
+The three effect sizes correspond to three different statistical models:
+
+The linear regression model in Equation 2 produces parameter estimates on the percentage-point scale. This model assumes that percentage point differences vary as a linear function of the predictor variable. While this model seems counter-intuitive, if mean proportions are between .25 and .75, and percentage point changes are the desired method, linear regression (perhaps with robust standard errors accounting for heteroskedasticity), can be a reasonable choice of model. For example, XXXX strongly advocates this approach. An alternative, quite similar approach, is to retain the binomial likelihood function but do away with the logistic link function. Many statistical packages may fail to estimate this model but it can be estimated in the Bayesian context with suitable priors. 
+
+The logistic regression model defined in Equation 3 will produce coefficients defined on the scale of the odd's ratio. In particular, logistic regression tells us how the (log transformed) odds ratio changes with the model's predictor variables. The advantage of this model is that, by forcing all predictions to be between 0 and 1, it can handle 
+
+If we change the link function in equation 3 from the logistic to log link function, we have the model in Equation 4, whose coefficients are risk ratios. This model tells us how the risk ratio varies linearly as a function of the predictor variables. In practice, this model is difficult to estimate, as it does not restrict predictions to be between 0 and 1. When this link function is applied with the binomial likelihood function, traditional statistical software may fail to converge. However, such a model is estimable in a Bayesian context with an appropriate choice of priors. 
+
+$$
+\begin{equation}
+y = e^{(\beta_{0} + \beta_{1} \times Prime + \beta_{2} \times Age)}
+\end{equation}
+$$
+
+
+
+
+
+## 
